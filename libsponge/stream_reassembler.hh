@@ -16,8 +16,8 @@ class StreamReassembler {
     ByteStream _output;  //!< The reassembled in-order byte stream
     size_t _capacity;    //!< The maximum number of bytes
     size_t _unassembled_bytes;
-    size_t _start_idx;
-    size_t _eof_idx;
+    uint64_t _start_idx;
+    uint64_t _eof_idx;
     std::string _buffer;
     std::vector<bool> _bitmap;
 
@@ -52,6 +52,10 @@ class StreamReassembler {
     //! \brief Is the internal state empty (other than the output stream)?
     //! \returns `true` if no substrings are waiting to be assembled
     bool empty() const;
+
+    uint64_t first_unassembled() const { return _start_idx; }
+
+    uint64_t first_unacceptable() const { return _start_idx + _output.remaining_capacity(); }
 };
 
 #endif  // SPONGE_LIBSPONGE_STREAM_REASSEMBLER_HH

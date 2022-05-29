@@ -30,9 +30,9 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
     }
 
     // read data into buffer
-    size_t min_idx = std::max(index, _start_idx);
-    size_t max_idx = std::min(index + data.size(), _start_idx + _capacity);
-    for (size_t idx = min_idx; idx < max_idx; idx++) {
+    uint64_t min_idx = std::max(index, _start_idx);
+    uint64_t max_idx = std::min(index + data.size(), _start_idx + _output.remaining_capacity());
+    for (uint64_t idx = min_idx; idx < max_idx; idx++) {
         size_t buf_idx = idx % _capacity;
         if (!_bitmap[buf_idx]) {
             _buffer[buf_idx] = data[idx - index];
@@ -43,7 +43,7 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
 
     // write assembled bytes into output
     std::string out_string;
-    for (size_t i = 0; i < std::min(_capacity, _output.remaining_capacity()); i++) {
+    for (size_t i = 0; i < _output.remaining_capacity(); i++) {
         size_t buf_idx = _start_idx % _capacity;
         if (!_bitmap[buf_idx]) {
             break;
