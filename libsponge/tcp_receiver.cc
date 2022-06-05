@@ -18,7 +18,7 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
     if (_syn_recv) {
         uint64_t index = unwrap(seg.header().seqno, _isn, _reassembler.first_unassembled());
         if (!seg.header().syn) {
-            index--;  // absolute seqno should shift 1 since SYN takes 1 byte
+            index--;  // SYN takes 1 byte
         }
         _reassembler.push_substring(seg.payload().copy(), index, seg.header().fin);
     }
@@ -26,11 +26,11 @@ void TCPReceiver::segment_received(const TCPSegment &seg) {
 
 optional<WrappingInt32> TCPReceiver::ackno() const {
     if (!_syn_recv) {
-        return {};
+        return {};  // CLOSED
     }
-    uint64_t abs_seqno = _reassembler.first_unassembled() + 1;  // SYN takes 1 byte
-    if (_reassembler.stream_out().input_ended()) {
-        abs_seqno++;  // FIN takes 1 byte
+    uint64_t abs_seqno = _reassembler.first_unassembled() + 1;  // SYN_RECV
+    if (stream_out().input_ended()) {
+        abs_seqno++;  // FIN_RECV
     }
     return wrap(abs_seqno, _isn);
 }

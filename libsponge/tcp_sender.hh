@@ -9,6 +9,25 @@
 #include <functional>
 #include <queue>
 
+class TCPRetransmissionTimer {
+  private:
+    size_t _rto;
+    size_t _ms_elapsed;
+
+  public:
+    TCPRetransmissionTimer(size_t rto) : _rto(rto), _ms_elapsed(0) {}
+
+    void reset() { _ms_elapsed = 0; }
+
+    size_t rto() const { return _rto; }
+    void set_rto(size_t rto) { _rto = rto; }
+
+    bool tick(size_t ms_since_last_tick) {
+        _ms_elapsed += ms_since_last_tick;
+        return _ms_elapsed >= _rto;  // return true if timeout
+    }
+};
+
 //! \brief The "sender" part of a TCP implementation.
 
 //! Accepts a ByteStream, divides it up into segments and sends the
@@ -31,6 +50,12 @@ class TCPSender {
 
     //! the (absolute) sequence number for the next byte to be sent
     uint64_t _next_seqno{0};
+
+    uint64_t _ackno{0};
+    size_t _window_size{1};
+    unsigned int _consecutive_retransmissions{0};
+    TCPRetransmissionTimer _timer;
+    std::deque<TCPSegment> _outstanding_segments{};
 
   public:
     //! Initialize a TCPSender
