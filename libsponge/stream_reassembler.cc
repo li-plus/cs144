@@ -1,5 +1,7 @@
 #include "stream_reassembler.hh"
 
+#include <algorithm>
+
 // Dummy implementation of a stream reassembler.
 
 // For Lab 1, please replace with a real implementation that passes the
@@ -15,7 +17,6 @@ using namespace std;
 StreamReassembler::StreamReassembler(const size_t capacity)
     : _output(capacity)
     , _capacity(capacity)
-    , _unassembled_bytes(0)
     , _start_idx(0)
     , _eof_idx(-1)
     , _buffer(capacity, '\0')
@@ -29,37 +30,31 @@ void StreamReassembler::push_substring(const string &data, const size_t index, c
         _eof_idx = index + data.size();
     }
 
-    // read data into buffer
     uint64_t min_idx = std::max(index, _start_idx);
     uint64_t max_idx = std::min(index + data.size(), _start_idx + _output.remaining_capacity());
-    for (uint64_t idx = min_idx; idx < max_idx; idx++) {
-        size_t buf_idx = idx % _capacity;
-        if (!_bitmap[buf_idx]) {
-            _buffer[buf_idx] = data[idx - index];
-            _bitmap[buf_idx] = true;
-            _unassembled_bytes++;
-        }
-    }
+    if (min_idx < max_idx) {
+        // read data into buffer
+        std::copy(data.begin() + (min_idx - index),
+                  data.begin() + (max_idx - index),
+                  _buffer.begin() + (min_idx - _start_idx));
+        std::fill_n(_bitmap.begin() + (min_idx - _start_idx), max_idx - min_idx, true);
 
-    // write assembled bytes into output
-    std::string out_string;
-    for (size_t i = 0; i < _output.remaining_capacity(); i++) {
-        size_t buf_idx = _start_idx % _capacity;
-        if (!_bitmap[buf_idx]) {
-            break;
-        }
-        out_string.append(1, _buffer[buf_idx]);
-        _bitmap[buf_idx] = false;
-        _unassembled_bytes--;
-        _start_idx++;
+        // write assembled bytes into output
+        auto write_size = std::find(_bitmap.begin(), _bitmap.end(), false) - _bitmap.begin();
+        std::string out_string(_buffer.begin(), _buffer.begin() + write_size);
+        _output.write(out_string);
+        _buffer.erase(_buffer.begin(), _buffer.begin() + write_size);
+        _buffer.insert(_buffer.end(), write_size, '\0');
+        _bitmap.erase(_bitmap.begin(), _bitmap.begin() + write_size);
+        _bitmap.insert(_bitmap.end(), write_size, false);
+        _start_idx += write_size;
     }
-    _output.write(out_string);
 
     if (_start_idx == _eof_idx) {
         _output.end_input();
     }
 }
 
-size_t StreamReassembler::unassembled_bytes() const { return _unassembled_bytes; }
+size_t StreamReassembler::unassembled_bytes() const { return std::count(_bitmap.begin(), _bitmap.end(), true); }
 
 bool StreamReassembler::empty() const { return unassembled_bytes() == 0; }

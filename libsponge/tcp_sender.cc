@@ -78,22 +78,26 @@ void TCPSender::fill_window() {
 //! \param window_size The remote receiver's advertised window size
 void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_size) {
     uint64_t ackno_abs = unwrap(ackno, _isn, _next_seqno);
-    if (_ackno < ackno_abs && ackno_abs <= _next_seqno) {
-        _ackno = ackno_abs;
-        auto ack_pos = std::find_if(
-            _outstanding_segments.begin(), _outstanding_segments.end(), [this, ackno_abs](const TCPSegment &seg) {
-                uint64_t segno_abs = unwrap(seg.header().seqno, _isn, _next_seqno);
-                return ackno_abs < segno_abs + seg.length_in_sequence_space();
-            });
-        _outstanding_segments.erase(_outstanding_segments.begin(), ack_pos);
+    if (_ackno <= ackno_abs && ackno_abs <= _next_seqno) {
+        // valid ackno
+        if (_ackno < ackno_abs) {
+            // new data is acknowledged
+            _ackno = ackno_abs;
+            auto ack_pos = std::find_if(
+                _outstanding_segments.begin(), _outstanding_segments.end(), [this, ackno_abs](const TCPSegment &seg) {
+                    uint64_t segno_abs = unwrap(seg.header().seqno, _isn, _next_seqno);
+                    return ackno_abs < segno_abs + seg.length_in_sequence_space();
+                });
+            _outstanding_segments.erase(_outstanding_segments.begin(), ack_pos);
 
-        // reset retransmission metrics
-        _timer.set_rto(_initial_retransmission_timeout);
-        _timer.reset();
-        _consecutive_retransmissions = 0;
+            // reset retransmission metrics
+            _timer.set_rto(_initial_retransmission_timeout);
+            _timer.reset();
+            _consecutive_retransmissions = 0;
+        }
+        _window_size = window_size;
+        fill_window();
     }
-
-    _window_size = window_size;
 }
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
