@@ -5,8 +5,52 @@
 #include "tcp_over_ip.hh"
 #include "tun.hh"
 
+#include <list>
 #include <optional>
 #include <queue>
+#include <unordered_map>
+
+struct ArpEntry {
+    uint32_t ip;
+    EthernetAddress mac;
+    size_t ms_inserted;
+
+    ArpEntry(uint32_t ip_, EthernetAddress mac_, size_t ms_inserted_) : ip(ip_), mac(mac_), ms_inserted(ms_inserted_) {}
+};
+
+class ArpTable {
+  public:
+    static constexpr size_t TTL = 30 * 1000;
+
+    ArpTable() = default;
+
+    size_t size() const { return _list.size(); }
+    bool empty() const { return _list.empty(); }
+
+    void push_back(const ArpEntry &entry) {
+        if (_map.count(entry.ip) == 0) {
+            _list.emplace_back(entry);
+            _map.insert(std::make_pair(entry.ip, --_list.end()));
+        }
+    }
+
+    const ArpEntry &front() const { return _list.front(); }
+    void pop_front() {
+        _map.erase(_list.front().ip);
+        _list.pop_front();
+    }
+
+    std::list<ArpEntry>::const_iterator begin() const { return _list.begin(); }
+    std::list<ArpEntry>::const_iterator end() const { return _list.end(); }
+    std::list<ArpEntry>::const_iterator find(uint32_t ip) const {
+        auto map_it = _map.find(ip);
+        return (map_it != _map.end()) ? map_it->second : _list.end();
+    }
+
+  private:
+    std::list<ArpEntry> _list{};
+    std::unordered_map<uint32_t, std::list<ArpEntry>::iterator> _map{};
+};
 
 //! \brief A "network interface" that connects IP (the internet layer, or network layer)
 //! with Ethernet (the network access layer, or link layer).
@@ -39,6 +83,11 @@ class NetworkInterface {
 
     //! outbound queue of Ethernet frames that the NetworkInterface wants sent
     std::queue<EthernetFrame> _frames_out{};
+
+    size_t _ms_clock{0};
+    size_t _ms_last_arp{-ArpTable::TTL};
+    ArpTable _arp_table{};
+    std::unordered_map<uint32_t, std::vector<InternetDatagram>> _pending_dgrams{};
 
   public:
     //! \brief Construct a network interface with given Ethernet (network-access-layer) and IP (internet-layer) addresses

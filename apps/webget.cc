@@ -20,7 +20,7 @@ void get_URL(const string &host, const string &path) {
 
     cerr << "Function called: get_URL(" << host << ", " << path << ").\n";
 
-    TCPSocket sock;
+    FullStackSocket sock;
     sock.connect(Address(host, "http"));
 
     std::ostringstream oss;
