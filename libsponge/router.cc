@@ -29,14 +29,32 @@ void Router::add_route(const uint32_t route_prefix,
     cerr << "DEBUG: adding route " << Address::from_ipv4_numeric(route_prefix).ip() << "/" << int(prefix_length)
          << " => " << (next_hop.has_value() ? next_hop->ip() : "(direct)") << " on interface " << interface_num << "\n";
 
-    DUMMY_CODE(route_prefix, prefix_length, next_hop, interface_num);
-    // Your code here.
+    uint32_t next_hop_ip = next_hop.has_value() ? next_hop->ipv4_numeric() : 0;
+    _route_table.emplace_back(RouteEntry(route_prefix, prefix_length, next_hop_ip, interface_num));
 }
 
 //! \param[in] dgram The datagram to be routed
 void Router::route_one_datagram(InternetDatagram &dgram) {
-    DUMMY_CODE(dgram);
-    // Your code here.
+    const RouteEntry *lpm_route = nullptr;  // longest-prefix-match
+    for (const auto &route : _route_table) {
+        uint32_t mask = -(uint64_t(1) << (32 - route.prefix_length));
+        if ((dgram.header().dst & mask) == route.route_prefix) {
+            if (!lpm_route || lpm_route->prefix_length < route.prefix_length) {
+                lpm_route = &route;
+            }
+        }
+    }
+    if (lpm_route) {
+        if (dgram.header().ttl > 1) {
+            dgram.header().ttl--;
+            uint32_t next_hop_ip = (lpm_route->next_hop_ip == 0) ? dgram.header().dst : lpm_route->next_hop_ip;
+            interface(lpm_route->interface_num).send_datagram(dgram, Address::from_ipv4_numeric(next_hop_ip));
+        } else {
+            // ttl expired, may send ICMP time exceeded?
+        }
+    } else {
+        // no route to host, may send ICMP destination unreachable?
+    }
 }
 
 void Router::route() {
