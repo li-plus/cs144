@@ -1,3 +1,5 @@
+For solution, see [CS144 Notes](https://github.com/li-plus/cs144/blob/master/writeups/notes.md).
+
 For build prereqs, see [the CS144 VM setup instructions](https://web.stanford.edu/class/cs144/vm_howto).
 
 ## Sponge quickstart

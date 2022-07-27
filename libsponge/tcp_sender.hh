@@ -9,23 +9,22 @@
 #include <functional>
 #include <queue>
 
-class TCPRetransmissionTimer {
+class TCPTimer {
   private:
-    size_t _rto;
-    size_t _ms_elapsed;
+    size_t _timeout;
+    size_t _elapsed;
 
   public:
-    TCPRetransmissionTimer(size_t rto) : _rto(rto), _ms_elapsed(0) {}
+    TCPTimer(size_t timeout) : _timeout(timeout), _elapsed(0) {}
 
-    void reset() { _ms_elapsed = 0; }
+    size_t timeout() const { return _timeout; }
+    void set_timeout(size_t timeout) { _timeout = timeout; }
 
-    size_t rto() const { return _rto; }
-    void set_rto(size_t rto) { _rto = rto; }
+    void reset() { _elapsed = 0; }
 
-    bool tick(size_t ms_since_last_tick) {
-        _ms_elapsed += ms_since_last_tick;
-        return _ms_elapsed >= _rto;  // return true if timeout
-    }
+    void tick(size_t time_since_last_tick) { _elapsed += time_since_last_tick; }
+
+    bool is_timeout() const { return _elapsed >= _timeout; }
 };
 
 //! \brief The "sender" part of a TCP implementation.
@@ -54,7 +53,7 @@ class TCPSender {
     uint64_t _ackno{0};
     size_t _window_size{1};
     unsigned int _consecutive_retransmissions{0};
-    TCPRetransmissionTimer _timer;
+    TCPTimer _timer;
     std::deque<TCPSegment> _outstanding_segments{};
 
   public:

@@ -37,7 +37,7 @@ void Router::add_route(const uint32_t route_prefix,
 void Router::route_one_datagram(InternetDatagram &dgram) {
     const RouteEntry *lpm_route = nullptr;  // longest-prefix-match
     for (const auto &route : _route_table) {
-        uint32_t mask = -(uint64_t(1) << (32 - route.prefix_length));
+        uint32_t mask = std::numeric_limits<uint64_t>::max() << (32 - route.prefix_length);
         if ((dgram.header().dst & mask) == route.route_prefix) {
             if (!lpm_route || lpm_route->prefix_length < route.prefix_length) {
                 lpm_route = &route;

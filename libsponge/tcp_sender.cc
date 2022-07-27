@@ -91,8 +91,8 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
             _outstanding_segments.erase(_outstanding_segments.begin(), ack_pos);
 
             // reset retransmission metrics
-            _timer.set_rto(_initial_retransmission_timeout);
             _timer.reset();
+            _timer.set_timeout(_initial_retransmission_timeout);
             _consecutive_retransmissions = 0;
         }
         _window_size = window_size;
@@ -102,16 +102,16 @@ void TCPSender::ack_received(const WrappingInt32 ackno, const uint16_t window_si
 
 //! \param[in] ms_since_last_tick the number of milliseconds since the last call to this method
 void TCPSender::tick(const size_t ms_since_last_tick) {
-    bool timeout = _timer.tick(ms_since_last_tick);
-    if (timeout) {
+    _timer.tick(ms_since_last_tick);
+    if (_timer.is_timeout()) {
+        _timer.reset();
         if (!_outstanding_segments.empty()) {
             _segments_out.push(_outstanding_segments.front());
             if (_window_size > 0) {
                 _consecutive_retransmissions++;
-                _timer.set_rto(_timer.rto() * 2);  // exponential backoff
+                _timer.set_timeout(_timer.timeout() * 2);  // exponential backoff
             }
         }
-        _timer.reset();
     }
 }
 
